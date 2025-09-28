@@ -83,16 +83,46 @@ router.post('/',
   (req, res, next) => {
     upload.single('receipt')(req, res, (err) => {
       if (err) {
+        console.error('Multer error:', err);
+        
         if (err instanceof multer.MulterError) {
           if (err.code === 'LIMIT_FILE_SIZE') {
-            return res.status(400).json({ error: 'File too large. Maximum size is 5MB.' });
+            return res.status(400).json({ 
+              error: 'File too large', 
+              details: 'Maximum file size is 5MB. Please compress your image or choose a smaller file.',
+              maxSize: '5MB',
+              timestamp: new Date().toISOString()
+            });
           }
-          return res.status(400).json({ error: `Upload error: ${err.message}` });
+          if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+            return res.status(400).json({ 
+              error: 'Unexpected file field', 
+              details: 'Please ensure the file field is named "receipt".',
+              timestamp: new Date().toISOString()
+            });
+          }
+          return res.status(400).json({ 
+            error: 'Upload error', 
+            details: err.message,
+            code: err.code,
+            timestamp: new Date().toISOString()
+          });
         }
+        
         if (err.message.includes('Invalid file type')) {
-          return res.status(400).json({ error: 'Invalid file type. Only JPG, PNG, and PDF files are allowed.' });
+          return res.status(400).json({ 
+            error: 'Invalid file type', 
+            details: 'Only JPG, PNG, and PDF files are allowed.',
+            allowedTypes: ['JPG', 'PNG', 'PDF'],
+            timestamp: new Date().toISOString()
+          });
         }
-        return res.status(400).json({ error: err.message });
+        
+        return res.status(400).json({ 
+          error: 'File upload error', 
+          details: err.message,
+          timestamp: new Date().toISOString()
+        });
       }
       next();
     });
@@ -102,6 +132,8 @@ router.post('/',
   // Finally process the submission
   async (req, res) => {
     try {
+      console.log('Processing submission for:', req.body.email);
+      
       const { firstName, lastName, phoneNumber, email, referredBy } = req.body;
 
       // Validate required fields
@@ -112,12 +144,19 @@ router.post('/',
 
       if (missingFields.length > 0) {
         return res.status(400).json({ 
-          error: `Missing required fields: ${missingFields.join(', ')}` 
+          error: 'Missing required fields',
+          details: `The following fields are required: ${missingFields.join(', ')}`,
+          missingFields,
+          timestamp: new Date().toISOString()
         });
       }
 
       if (!req.file) {
-        return res.status(400).json({ error: 'Receipt file is required' });
+        return res.status(400).json({ 
+          error: 'Receipt file is required',
+          details: 'Please upload a receipt image (JPG, PNG) or PDF file.',
+          timestamp: new Date().toISOString()
+        });
       }
 
       // Check if email already exists
@@ -125,7 +164,9 @@ router.post('/',
       if (existingSubmission) {
         return res.status(400).json({ 
           error: 'Email already registered',
-          details: 'This email address has already been used for registration'
+          details: 'This email address has already been used for registration. Each email can only be used once.',
+          existingReferenceId: existingSubmission.referenceId,
+          timestamp: new Date().toISOString()
         });
       }
 
@@ -141,11 +182,14 @@ router.post('/',
       });
 
       await submission.save();
+      console.log('Submission saved successfully:', submission.referenceId);
 
       res.status(201).json({
         message: 'Registration submitted successfully',
         referenceId: submission.referenceId,
-        submissionId: submission._id
+        submissionId: submission._id,
+        receiptUrl: req.file.path,
+        timestamp: new Date().toISOString()
       });
 
     } catch (error) {
@@ -153,25 +197,51 @@ router.post('/',
       
       // Handle Mongoose validation errors
       if (error.name === 'ValidationError') {
-        const validationErrors = Object.values(error.errors).map(err => err.message);
+        const validationErrors = Object.values(error.errors).map(err => ({
+          field: err.path,
+          message: err.message,
+          value: err.value
+        }));
+        
         return res.status(400).json({ 
           error: 'Validation failed',
-          details: validationErrors
+          details: 'One or more fields contain invalid data',
+          validationErrors,
+          timestamp: new Date().toISOString()
         });
       }
 
       // Handle duplicate key errors
       if (error.code === 11000) {
         const field = Object.keys(error.keyValue)[0];
+        const value = error.keyValue[field];
         return res.status(400).json({ 
           error: `Duplicate ${field}`,
-          details: `This ${field} is already registered`
+          details: `The ${field} "${value}" is already registered`,
+          field,
+          value,
+          timestamp: new Date().toISOString()
         });
       }
 
+      // Handle MongoDB connection errors
+      if (error.name === 'MongoNetworkError' || error.name === 'MongoTimeoutError') {
+        return res.status(503).json({ 
+          error: 'Database connection error',
+          details: 'Unable to connect to database. Please try again later.',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Generic error with full details in development
       res.status(500).json({ 
         error: 'Failed to submit registration',
-        message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+        ...(process.env.NODE_ENV === 'development' && {
+          stack: error.stack,
+          errorName: error.name
+        }),
+        timestamp: new Date().toISOString()
       });
     }
   }

@@ -12,6 +12,9 @@ const { specs, swaggerUi } = require('./config/swagger');
 
 const app = express();
 
+// Trust proxy for Render deployment
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 app.use(cors({
@@ -19,10 +22,17 @@ app.use(cors({
   credentials: true
 }));
 
-// Rate limiting
+// Rate limiting with proper proxy configuration
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: 100, // limit each IP to 100 requests per windowMs
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  // Skip validation errors for proxy configuration
+  validate: {
+    xForwardedForHeader: false,
+    trustProxy: false
+  }
 });
 app.use(limiter);
 
@@ -83,11 +93,8 @@ app.use('*', (req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// MongoDB connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/dinner-registration', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
+// MongoDB connection (removed deprecated options)
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/dinner-registration')
 .then(() => console.log('✅ Connected to MongoDB'))
 .catch(err => console.error('❌ MongoDB connection error:', err));
 
