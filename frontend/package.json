@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
+    "@tailwindcss/postcss": "^4.1.13",
     "@vitejs/plugin-react": "^5.0.3",
     "autoprefixer": "^10.4.21",
     "class-variance-authority": "^0.7.1",
@@ -41,7 +42,6 @@
     "vite": "^7.1.7"
   },
   "engines": {
-  "node": "22"
-}
-
+    "node": "22"
+  }
 }
