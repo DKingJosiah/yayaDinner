@@ -48,7 +48,7 @@ const HomePage = () => {
               </ul>
 
               <Button className="w-full transition-bounce" size="lg" asChild>
-                <Link to="/admin">
+                <Link to="/admin/login">
                   <UserCog className="w-4 h-4 mr-2" />
                   Access Dashboard
                 </Link>
