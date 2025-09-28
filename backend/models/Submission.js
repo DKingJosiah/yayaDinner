@@ -41,6 +41,10 @@ const submissionSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  receiptCloudinaryId: {
+    type: String,
+    required: false // For Cloudinary public ID
+  },
   amount: {
     type: Number,
     default: 12000,

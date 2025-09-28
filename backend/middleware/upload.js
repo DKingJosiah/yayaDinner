@@ -1,26 +1,27 @@
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('cloudinary').v2;
 
-// Create upload directory if it doesn't exist
-const createUploadDir = (dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-};
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const today = new Date().toISOString().split('T')[0];
-    const uploadDir = path.join(__dirname, '../data/receipts', today);
-    createUploadDir(uploadDir);
-    cb(null, uploadDir);
+// Configure Cloudinary storage
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'dinner-registration/receipts',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'pdf'],
+    resource_type: 'auto', // Automatically detect file type
+    public_id: (req, file) => {
+      const timestamp = Date.now();
+      const randomString = Math.round(Math.random() * 1E9);
+      return `receipt-${timestamp}-${randomString}`;
+    },
   },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    cb(null, uniqueSuffix + ext);
-  }
 });
 
 const fileFilter = (req, file, cb) => {
