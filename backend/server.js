@@ -19,9 +19,11 @@ app.set('trust proxy', 1);
 app.use(helmet());
 // CORS configuration for deployment
 const allowedOrigins = [
-  'http://localhost:5173', // Development
-  'https://yaya-dinner.vercel.app', // Production frontend
-  'https://hogdinner.onrender.com' // Backend URL (for Swagger docs)
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',   // for Swagger UI
+  'https://yaya-dinner.vercel.app',
+  'https://hogdinner.onrender.com'
 ];
 
 app.use(cors({
