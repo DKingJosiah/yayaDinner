@@ -28,19 +28,28 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
+    console.log("🌍 Incoming Origin:", origin);
+
+    // Allow requests with no origin (like curl or server-to-server)
     if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
+
+    // Allow localhost (dev), vercel (frontend), and render (backend + swagger)
+    if (
+      origin.includes("localhost:5173") ||
+      origin.includes("vercel.app") ||
+      origin.includes("onrender.com")
+    ) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      console.error("❌ Blocked by CORS:", origin);
+      callback(new Error("Not allowed by CORS"));
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 }));
+
 
 // Rate limiting with proper proxy configuration
 const limiter = rateLimit({
