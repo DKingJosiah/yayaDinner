@@ -5,6 +5,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/components/RegistrationForm.jsx"],
   "exclude": ["node_modules"]
 }
