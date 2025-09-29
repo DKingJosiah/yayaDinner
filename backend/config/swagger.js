@@ -13,12 +13,15 @@ const options = {
         email: 'support@dinnerregistration.com'
       }
     },
-    servers: [
-      {
-        url: process.env.API_URL || 'http://localhost:3000',
-        description: 'Development server'
-      }
-    ],
+   servers: [
+  {
+    url: process.env.API_URL || 'http://localhost:3000',
+    description: process.env.NODE_ENV === 'production' 
+      ? 'Production server' 
+      : 'Local development'
+  }
+]
+,
     components: {
       securitySchemes: {
         bearerAuth: {
