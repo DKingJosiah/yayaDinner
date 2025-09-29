@@ -18,6 +18,12 @@ export const adminService = {
     return response.data;
   },
 
+  // Get receipt image as base64
+  getReceiptImage: async (id) => {
+    const response = await api.get(`/api/admin/submissions/${id}/receipt`);
+    return response.data;
+  },
+
   approveSubmission: async (id) => {
     const response = await api.post(`/api/admin/submissions/${id}/approve`);
     return response.data;

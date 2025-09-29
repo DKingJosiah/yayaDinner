@@ -548,4 +548,68 @@ router.get('/audit-logs', auth, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/admin/submissions/{id}/receipt:
+ *   get:
+ *     summary: Get receipt image for a submission
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Submission ID
+ *     responses:
+ *       200:
+ *         description: Receipt image data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 dataUrl:
+ *                   type: string
+ *                   description: Base64 data URL of the image
+ *                 mimeType:
+ *                   type: string
+ *                 originalName:
+ *                   type: string
+ *                 size:
+ *                   type: number
+ *       404:
+ *         description: Submission not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/submissions/:id/receipt', auth, async (req, res) => {
+  try {
+    const submission = await Submission.findById(req.params.id)
+      .select('receiptImage receiptMimeType receiptOriginalName receiptSize');
+    
+    if (!submission) {
+      return res.status(404).json({ error: 'Submission not found' });
+    }
+
+    if (!submission.receiptImage) {
+      return res.status(404).json({ error: 'Receipt image not found' });
+    }
+
+    res.json({
+      dataUrl: `data:${submission.receiptMimeType};base64,${submission.receiptImage}`,
+      mimeType: submission.receiptMimeType,
+      originalName: submission.receiptOriginalName,
+      size: submission.receiptSize
+    });
+  } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({ error: 'Invalid submission ID' });
+    }
+    res.status(500).json({ error: 'Failed to fetch receipt' });
+  }
+});
+
 module.exports = router;

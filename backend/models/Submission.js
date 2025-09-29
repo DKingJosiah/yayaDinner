@@ -33,17 +33,31 @@ const submissionSchema = new mongoose.Schema({
     trim: true,
     maxlength: 100
   },
-  receiptPath: {
+  // Base64 image storage
+  receiptImage: {
     type: String,
-    required: true
+    required: true // Base64 encoded image
+  },
+  receiptMimeType: {
+    type: String,
+    required: true // e.g., 'image/jpeg', 'image/png', 'application/pdf'
   },
   receiptOriginalName: {
     type: String,
     required: true
   },
+  receiptSize: {
+    type: Number,
+    required: true // File size in bytes
+  },
+  // Keep legacy fields for backward compatibility (optional)
+  receiptPath: {
+    type: String,
+    required: false
+  },
   receiptCloudinaryId: {
     type: String,
-    required: false // For Cloudinary public ID
+    required: false
   },
   amount: {
     type: Number,

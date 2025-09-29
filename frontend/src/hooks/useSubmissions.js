@@ -26,6 +26,17 @@ export const useSubmissions = (filter = 'all') => {
     });
   };
 
+  // Get receipt image query
+  const useReceiptImage = (id) => {
+    return useQuery({
+      queryKey: ['receipt', id],
+      queryFn: () => adminService.getReceiptImage(id),
+      enabled: !!id,
+      staleTime: 300000, // 5 minutes (images don't change often)
+      retry: 1, // Only retry once for images
+    });
+  };
+
   // Approve submission mutation
   const approveMutation = useMutation({
     mutationFn: adminService.approveSubmission,
@@ -62,6 +73,7 @@ export const useSubmissions = (filter = 'all') => {
     error: submissionsQuery.error,
     refetch: submissionsQuery.refetch,
     useSubmissionDetails,
+    useReceiptImage,
     approveSubmission: approveMutation.mutate,
     rejectSubmission: rejectMutation.mutate,
     isApproving: approveMutation.isPending,

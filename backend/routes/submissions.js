@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const Submission = require('../models/Submission');
-const { upload, uploadToCloudinary } = require('../middleware/cloudinaryUpload');
+const { upload, convertToBase64 } = require('../middleware/base64Upload');
 const router = express.Router();
 
 /**
@@ -127,8 +127,8 @@ router.post('/',
       next();
     });
   },
-  // Then upload to Cloudinary
-  uploadToCloudinary,
+  // Convert to base64
+  convertToBase64,
   // Finally process the submission
   async (req, res) => {
     try {
@@ -176,56 +176,52 @@ router.post('/',
         phoneNumber,
         email,
         referredBy,
-        receiptPath: req.file.path, // Cloudinary URL
+        receiptImage: req.file.base64, // Store base64 string
+        receiptMimeType: req.file.mimetype,
         receiptOriginalName: req.file.originalname,
-        receiptCloudinaryId: req.file.filename // Cloudinary public ID
+        receiptSize: req.file.size
       });
 
       await submission.save();
-      console.log('Submission saved successfully:', submission.referenceId);
+
+      console.log(`✅ Submission saved successfully: ${submission.referenceId}`);
 
       res.status(201).json({
         message: 'Registration submitted successfully',
         referenceId: submission.referenceId,
         submissionId: submission._id,
-        receiptUrl: req.file.path,
         timestamp: new Date().toISOString()
       });
 
     } catch (error) {
       console.error('Submission error:', error);
-      
-      // Handle Mongoose validation errors
+
+      // Handle validation errors
       if (error.name === 'ValidationError') {
         const validationErrors = Object.values(error.errors).map(err => ({
           field: err.path,
-          message: err.message,
-          value: err.value
+          message: err.message
         }));
         
         return res.status(400).json({ 
           error: 'Validation failed',
-          details: 'One or more fields contain invalid data',
+          details: 'Please check your input data',
           validationErrors,
           timestamp: new Date().toISOString()
         });
       }
 
-      // Handle duplicate key errors
+      // Handle duplicate key errors (email already exists)
       if (error.code === 11000) {
-        const field = Object.keys(error.keyValue)[0];
-        const value = error.keyValue[field];
         return res.status(400).json({ 
-          error: `Duplicate ${field}`,
-          details: `The ${field} "${value}" is already registered`,
-          field,
-          value,
+          error: 'Email already registered',
+          details: 'This email address has already been used for registration',
           timestamp: new Date().toISOString()
         });
       }
 
-      // Handle MongoDB connection errors
-      if (error.name === 'MongoNetworkError' || error.name === 'MongoTimeoutError') {
+      // Handle database connection errors
+      if (error.name === 'MongoNetworkError' || error.name === 'MongooseServerSelectionError') {
         return res.status(503).json({ 
           error: 'Database connection error',
           details: 'Unable to connect to database. Please try again later.',

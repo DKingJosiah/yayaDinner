@@ -53,7 +53,23 @@ const RegistrationForm = () => {
       toast.success("Registration submitted successfully!");
       reset();
     } catch (error) {
-      toast.error(error.response?.data?.error || "Failed to submit registration");
+      console.error('Registration error:', error);
+      
+      // Handle specific error types
+      if (error.response?.data?.error) {
+        toast.error(error.response.data.error);
+        
+        // Show additional details if available
+        if (error.response.data.details) {
+          setTimeout(() => {
+            toast.error(error.response.data.details, { duration: 6000 });
+          }, 1000);
+        }
+      } else if (error.code === 'NETWORK_ERROR') {
+        toast.error("Network error. Please check your connection and try again.");
+      } else {
+        toast.error("Failed to submit registration. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -174,14 +190,8 @@ const RegistrationForm = () => {
                 <Input
                   id="phoneNumber"
                   type="tel"
-                  {...register("phoneNumber", {
-                    required: "Phone number is required",
-                    pattern: {
-                      value: /^[+]?\d{10,15}$/,
-                      message: "Please enter a valid phone number",
-                    },
-                  })}
-                  placeholder="e.g. 07012345678"
+                  {...register("phoneNumber", { required: "Phone number is required" })}
+                  placeholder="Enter phone number"
                 />
                 {errors.phoneNumber && (
                   <p className="text-sm text-destructive">{errors.phoneNumber.message}</p>
@@ -208,7 +218,7 @@ const RegistrationForm = () => {
                 <Input
                   id="referredBy"
                   {...register("referredBy", { required: "Referrer is required" })}
-                  placeholder="Enter referrer’s name"
+                  placeholder="Enter referrer's name"
                 />
                 {errors.referredBy && (
                   <p className="text-sm text-destructive">{errors.referredBy.message}</p>
@@ -229,6 +239,9 @@ const RegistrationForm = () => {
                 {errors.receipt && (
                   <p className="text-sm text-destructive">{errors.receipt.message}</p>
                 )}
+                <p className="text-xs text-muted-foreground">
+                  Accepted formats: JPG, PNG, PDF (Max 5MB)
+                </p>
               </div>
 
               <Button
