@@ -318,11 +318,11 @@ router.post('/submissions/:id/approve', auth, async (req, res) => {
     
     await submission.save();
 
-    // Log the action
+    // Log the action (in approve route)
     await new AuditLog({
       adminEmail: req.admin.email,
       action: 'approve_submission',
-      targetId: submission._id,
+      submissionId: submission._id, // Changed from targetId to submissionId
       details: `Approved submission for ${submission.fullName}`,
       ipAddress: req.ip
     }).save();
@@ -339,6 +339,13 @@ router.post('/submissions/:id/approve', auth, async (req, res) => {
       submission 
     });
   } catch (error) {
+    // Add detailed error logging
+    console.error('Approval error details:', {
+      submissionId: req.params.id,
+      adminEmail: req.admin?.email,
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ error: 'Failed to approve submission' });
   }
 });
@@ -426,11 +433,11 @@ router.post('/submissions/:id/reject', auth, async (req, res) => {
     
     await submission.save();
 
-    // Log the action
+    // Log the action (in reject route)
     await new AuditLog({
       adminEmail: req.admin.email,
       action: 'reject_submission',
-      targetId: submission._id,
+      submissionId: submission._id, // Changed from targetId to submissionId
       details: `Rejected submission for ${submission.fullName}: ${reason}`,
       ipAddress: req.ip
     }).save();
@@ -609,6 +616,102 @@ router.get('/submissions/:id/receipt', auth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid submission ID' });
     }
     res.status(500).json({ error: 'Failed to fetch receipt' });
+  }
+});
+
+// Add this route for testing emails
+/**
+ * @swagger
+ * /api/admin/test-email:
+ *   post:
+ *     summary: Test email functionality
+ *     description: Send test approval or rejection emails to verify email service is working
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - type
+ *             properties:
+ *               type:
+ *                 type: string
+ *                 enum: [approval, rejection]
+ *                 description: Type of email to test
+ *                 example: approval
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email address to send test email to
+ *                 example: test@example.com
+ *               referenceId:
+ *                 type: string
+ *                 description: Reference ID to use in test email
+ *                 example: TEST123
+ *     responses:
+ *       200:
+ *         description: Email test completed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Approval email test completed
+ *       400:
+ *         description: Invalid email type
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Email test failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: Email test failed
+ *                 details:
+ *                   type: string
+ *                   example: SMTP connection failed
+ */
+router.post('/test-email', auth, async (req, res) => {
+  try {
+    const { type, email, referenceId } = req.body;
+    
+    // Create a mock submission object for testing
+    const mockSubmission = {
+      email: email || 'test@example.com',
+      referenceId: referenceId || 'TEST123',
+      fullName: 'Test User'
+    };
+
+    if (type === 'approval') {
+      await emailService.sendApprovalEmail(mockSubmission);
+      res.json({ message: 'Approval email test completed' });
+    } else if (type === 'rejection') {
+      await emailService.sendRejectionEmail(mockSubmission, 'Test rejection reason');
+      res.json({ message: 'Rejection email test completed' });
+    } else {
+      res.status(400).json({ error: 'Invalid email type. Use "approval" or "rejection"' });
+    }
+  } catch (error) {
+    console.error('Email test error:', error);
+    res.status(500).json({ error: 'Email test failed', details: error.message });
   }
 });
 

@@ -7,7 +7,7 @@ const auditLogSchema = new mongoose.Schema({
   },
   action: {
     type: String,
-    enum: ['approve', 'reject', 'login'],
+    enum: ['approve', 'reject', 'login', 'approve_submission', 'reject_submission'],
     required: true
   },
   submissionId: {

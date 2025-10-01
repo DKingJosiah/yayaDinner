@@ -2,49 +2,126 @@
 
 @import "tailwindcss";
 
-/* Custom CSS variables for Tailwind v4 */
-@theme {
-  --color-primary: 262 83% 58%;
-  --color-primary-foreground: 210 40% 98%;
-  --color-success: 142 71% 45%;
-  --color-success-foreground: 210 40% 98%;
-  --color-warning: 45 93% 47%;
-  --color-warning-foreground: 222.2 84% 4.9%;
-  --color-error: 0 84% 60%;
-  --color-error-foreground: 210 40% 98%;
+/* Black & Gold Event Theme - Option 3 Implementation */
+@layer base {
+  :root {
+    /* Core theme colors - Light neutral base */
+    --background: 0 0% 98%;           /* Cream/off-white background */
+    --foreground: 0 0% 5%;            /* Deep black text */
+    --card: 0 0% 100%;                /* Pure white cards */
+    --card-foreground: 0 0% 5%;       /* Black text on cards */
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 5%;
+    
+    /* Primary colors - Rich Gold */
+    --primary: 45 100% 42%;           /* Rich gold #D4AF37 */
+    --primary-foreground: 0 0% 5%;    /* Black text on gold */
+    
+    /* Secondary colors - Elegant neutrals */
+    --secondary: 0 0% 96%;            /* Light gray */
+    --secondary-foreground: 0 0% 15%; /* Dark gray text */
+    
+    /* Muted colors */
+    --muted: 0 0% 94%;                /* Very light gray */
+    --muted-foreground: 0 0% 40%;     /* Medium gray text */
+    
+    /* Accent colors - Gold variations */
+    --accent: 45 100% 50%;            /* Brighter gold for accents */
+    --accent-foreground: 0 0% 5%;     /* Black text */
+    
+    /* Status colors */
+    --destructive: 0 84% 60%;         /* Red for errors */
+    --destructive-foreground: 0 0% 98%;
+    --success: 120 100% 25%;          /* Dark green */
+    --success-foreground: 0 0% 98%;
+    --warning: 38 92% 50%;            /* Amber warning */
+    --warning-foreground: 0 0% 5%;
+    
+    /* Black variations */
+    --black: 0 0% 0%;                 /* Pure black */
+    --black-matte: 0 0% 8%;           /* Matte black */
+    --charcoal: 0 0% 20%;             /* Charcoal gray */
+    
+    /* Gold variations */
+    --gold-rich: 45 100% 42%;         /* Rich gold #D4AF37 */
+    --gold-antique: 45 65% 35%;       /* Antique gold */
+    --gold-champagne: 45 44% 72%;     /* Champagne gold */
+    --gold-light: 45 100% 85%;        /* Light gold */
+    
+    /* Border and input */
+    --border: 0 0% 90%;
+    --input: 0 0% 95%;
+    --ring: 45 100% 42%;              /* Gold focus ring */
+    
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Dark mode - Inverted for evening elegance */
+    --background: 0 0% 5%;            /* Deep black background */
+    --foreground: 45 100% 85%;        /* Light gold text */
+    --card: 0 0% 8%;                  /* Matte black cards */
+    --card-foreground: 45 100% 85%;
+    --primary: 45 100% 50%;           /* Brighter gold in dark mode */
+    --primary-foreground: 0 0% 5%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 45 100% 85%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 45 100% 60%;
+    --accent-foreground: 0 0% 5%;
+    --border: 0 0% 20%;
+    --input: 0 0% 15%;
+  }
 }
 
-/* Custom utilities */
+/* Enhanced utilities for Black & Gold theme */
 @layer utilities {
-  .gradient-primary {
-    background: linear-gradient(135deg, hsl(262 83% 58%), hsl(262 83% 68%));
+  .gradient-gold {
+    background: linear-gradient(135deg, hsl(45 100% 42%), hsl(45 100% 50%));
   }
   
-  .gradient-subtle {
-    background: linear-gradient(135deg, hsl(0 0% 100%), hsl(220 14% 96%));
+  .gradient-black-gold {
+    background: linear-gradient(135deg, hsl(0 0% 5%), hsl(45 100% 42%));
   }
   
-  .gradient-success {
-    background: linear-gradient(135deg, hsl(142 71% 45%), hsl(142 71% 55%));
+  .gradient-elegant {
+    background: linear-gradient(135deg, hsl(0 0% 98%), hsl(45 100% 95%));
+  }
+  
+  .gradient-luxury {
+    background: linear-gradient(135deg, hsl(0 0% 8%), hsl(0 0% 20%), hsl(45 100% 42%));
+  }
+  
+  .text-gold {
+    color: hsl(45 100% 42%);
+  }
+  
+  .text-gold-light {
+    color: hsl(45 100% 85%);
+  }
+  
+  .bg-gold {
+    background-color: hsl(45 100% 42%);
+  }
+  
+  .bg-black-matte {
+    background-color: hsl(0 0% 8%);
+  }
+  
+  .shadow-gold {
+    box-shadow: 0 10px 30px -10px hsl(45 100% 42% / 0.3);
   }
   
   .shadow-elegant {
-    box-shadow: 0 10px 30px -10px hsl(262 83% 58% / 0.1);
+    box-shadow: 0 20px 40px -10px hsl(0 0% 0% / 0.1), 0 0 0 1px hsl(45 100% 42% / 0.1);
   }
   
-  .shadow-card {
-    box-shadow: 0 4px 6px -1px hsl(220 14% 96% / 0.6), 0 2px 4px -1px hsl(220 14% 96% / 0.06);
+  .border-gold {
+    border-color: hsl(45 100% 42%);
   }
   
-  .shadow-hover {
-    box-shadow: 0 10px 25px -5px hsl(262 83% 58% / 0.15);
-  }
-  
-  .transition-smooth {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  .transition-bounce {
-    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  .transition-luxury {
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
