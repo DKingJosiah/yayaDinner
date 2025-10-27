@@ -182,14 +182,15 @@ router.post('/',
         receiptSize: req.file.size
       });
 
-      await submission.save();
+      const savedSubmission = await submission.save();
 
-      console.log(`✅ Submission saved successfully: ${submission.referenceId}`);
+      console.log(`✅ Submission saved successfully: ${savedSubmission.referenceId}`);
 
-      res.status(201).json({
+      // Immediately send response after successful save to minimize race condition
+      return res.status(201).json({
         message: 'Registration submitted successfully',
-        referenceId: submission.referenceId,
-        submissionId: submission._id,
+        referenceId: savedSubmission.referenceId,
+        submissionId: savedSubmission._id,
         timestamp: new Date().toISOString()
       });
 

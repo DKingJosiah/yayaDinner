@@ -128,8 +128,8 @@ const RegistrationForm = () => {
                 </p>
               </CardHeader>
               <CardContent className="p-8 text-center space-y-6">
-                <div className="bg-gold/10 p-8 rounded-2xl border-2 border-gold/30 shadow-gold">
-                  <code className="text-3xl font-mono text-gold font-bold tracking-wider block">
+                <div className="bg-gold/10 py-8  rounded-2xl border-2 border-gold/30 shadow-gold">
+                  <code className="text-xl font-mono text-gold font-bold tracking-wider block">
                     {referenceId}
                   </code>
                 </div>
@@ -367,7 +367,7 @@ const RegistrationForm = () => {
                     <Input
                       id="referredBy"
                       {...register("referredBy", {
-                        required: "Referrer is required",
+                        // required: "Referrer is required",
                       })}
                       placeholder="Enter referrer's name"
                       className="pl-10 h-12 transition-luxury focus:shadow-gold border-gold/20 focus:border-gold/50"

@@ -1,4 +1,4 @@
-const SibApiV3Sdk = require('sib-api-v3-sdk');
+const Brevo = require('@getbrevo/brevo');
 const nodemailer = require('nodemailer');
 
 class EmailService {
@@ -31,11 +31,21 @@ class EmailService {
         return;
       }
 
-      const defaultClient = SibApiV3Sdk.ApiClient.instance;
+      const defaultClient = Brevo.ApiClient.instance;
+      
+      // Check if client exists and has authentications
+      if (!defaultClient || !defaultClient.authentications) {
+        throw new Error('Brevo API client not properly initialized');
+      }
+      
       const apiKey = defaultClient.authentications['api-key'];
+      if (!apiKey) {
+        throw new Error('API key authentication not found');
+      }
+      
       apiKey.apiKey = process.env.BREVO_API_KEY;
       
-      this.brevoApi = new SibApiV3Sdk.TransactionalEmailsApi();
+      this.brevoApi = new Brevo.TransactionalEmailsApi();
       this.brevoEnabled = true;
       
       console.log('✅ Brevo initialized');
@@ -122,7 +132,7 @@ class EmailService {
 
   async sendViaBrevo(submission, emailContent) {
     try {
-      const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+      const sendSmtpEmail = new Brevo.SendSmtpEmail();
       
       sendSmtpEmail.sender = {
         email: process.env.BREVO_SENDER_EMAIL,
