@@ -137,7 +137,7 @@ router.post('/',
       const { firstName, lastName, phoneNumber, email, referredBy } = req.body;
 
       // Validate required fields
-      const requiredFields = { firstName, lastName, phoneNumber, email, referredBy };
+      const requiredFields = { firstName, lastName, phoneNumber, email };
       const missingFields = Object.entries(requiredFields)
         .filter(([key, value]) => !value || value.trim() === '')
         .map(([key]) => key);

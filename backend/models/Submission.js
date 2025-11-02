@@ -29,7 +29,7 @@ const submissionSchema = new mongoose.Schema({
   },
   referredBy: {
     type: String,
-    required: true,
+    required: false,
     trim: true,
     maxlength: 100
   },

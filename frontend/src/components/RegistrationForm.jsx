@@ -24,6 +24,28 @@ import {
 import rccgImage from "../assets/rccg.png";
 import yayaImage from "../assets/yaya.jpeg";
 
+// Phone number formatting utility
+const formatPhoneNumber = (value) => {
+  if (!value) return "";
+  
+  // Remove all non-digit characters
+  let cleaned = value.replace(/\D/g, "");
+  
+  // Remove country code if present (234 for Nigeria)
+  if (cleaned.startsWith("234")) {
+    cleaned = "0" + cleaned.substring(3);
+  }
+  // Ensure it starts with 0
+  else if (!cleaned.startsWith("0")) {
+    cleaned = "0" + cleaned;
+  }
+  
+  // Limit to 11 digits (Nigerian format)
+  cleaned = cleaned.substring(0, 11);
+  
+  return cleaned;
+};
+
 const RegistrationForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [referenceId, setReferenceId] = useState("");
@@ -35,6 +57,8 @@ const RegistrationForm = () => {
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
+    watch,
   } = useForm();
 
   const copyToClipboard = async (text, field) => {
@@ -48,6 +72,11 @@ const RegistrationForm = () => {
     }
   };
 
+  const handlePhoneChange = (e) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    setValue("phoneNumber", formatted);
+  };
+
   const onSubmit = async (data) => {
     setIsSubmitting(true);
 
@@ -57,7 +86,7 @@ const RegistrationForm = () => {
       formData.append("lastName", data.lastName);
       formData.append("phoneNumber", data.phoneNumber);
       formData.append("email", data.email);
-      formData.append("referredBy", data.referredBy);
+      formData.append("referredBy", data.referredBy || ""); // Optional field
       formData.append("receipt", data.receipt[0]);
 
       const response = await api.post("/api/submissions", formData, {
@@ -200,7 +229,6 @@ const RegistrationForm = () => {
                 className="w-full h-full object-cover"
               />
             </div>
-            {/* < */}
             <div className="w-24 h-24 rounded-full overflow-hidden border border-gold/30 shadow-gold">
               <img
                 src={yayaImage}
@@ -313,11 +341,19 @@ const RegistrationForm = () => {
                       type="tel"
                       {...register("phoneNumber", {
                         required: "Phone number is required",
+                        validate: (value) => {
+                          const formatted = formatPhoneNumber(value);
+                          return formatted.length === 11 || "Phone number must be 11 digits";
+                        }
                       })}
-                      placeholder="Enter phone number"
+                      onChange={handlePhoneChange}
+                      placeholder="e.g. 08012345678"
                       className="pl-10 h-12 transition-luxury focus:shadow-gold border-gold/20 focus:border-gold/50"
                     />
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enter in format: 08012345678
+                  </p>
                   {errors.phoneNumber && (
                     <p className="text-sm text-destructive flex items-center gap-2">
                       <div className="w-1 h-1 bg-destructive rounded-full"></div>
@@ -353,32 +389,24 @@ const RegistrationForm = () => {
                   )}
                 </div>
 
-                {/* Referred By */}
+                {/* Referred By - OPTIONAL */}
                 <div className="space-y-2">
                   <Label
                     htmlFor="referredBy"
                     className="text-sm font-semibold text-foreground flex items-center gap-2"
                   >
                     <UserCheck className="w-4 h-4 text-gold" />
-                    Who Referred You?
+                    Who Referred You? <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
                   </Label>
                   <div className="relative">
                     <UserCheck className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="referredBy"
-                      {...register("referredBy", {
-                        // required: "Referrer is required",
-                      })}
-                      placeholder="Enter referrer's name"
+                      {...register("referredBy")}
+                      placeholder="Enter referrer's name (optional)"
                       className="pl-10 h-12 transition-luxury focus:shadow-gold border-gold/20 focus:border-gold/50"
                     />
                   </div>
-                  {errors.referredBy && (
-                    <p className="text-sm text-destructive flex items-center gap-2">
-                      <div className="w-1 h-1 bg-destructive rounded-full"></div>
-                      {errors.referredBy.message}
-                    </p>
-                  )}
                 </div>
 
                 {/* Payment Details Section */}
@@ -403,7 +431,7 @@ const RegistrationForm = () => {
                       <button
                         type="button"
                         onClick={() =>
-                          copyToClipboard("RCCG HOG YOUTH", "Account Name")
+                          copyToClipboard("RCCG HOG YOUTH FELLOWSHIP", "Account Name")
                         }
                         className="p-2 hover:bg-gold/10 rounded-lg transition-colors"
                       >
@@ -475,7 +503,7 @@ const RegistrationForm = () => {
                     Upload Payment Receipt
                   </Label>
                   <div className="relative">
-                    <Upload className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Upload className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
                     <Input
                       id="receipt"
                       type="file"
@@ -483,7 +511,7 @@ const RegistrationForm = () => {
                       {...register("receipt", {
                         required: "Receipt is required",
                       })}
-                      className="pl-10 h-12 transition-luxury focus:shadow-gold border-gold/20 focus:border-gold/50 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gold/10 file:text-gold hover:file:bg-gold/20"
+                      className="pl-10 h-12 transition-luxury focus:shadow-gold border-gold/20 focus:border-gold/50 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gold/10 file:text-gold hover:file:bg-gold/20 cursor-pointer relative z-20"
                     />
                   </div>
                   {errors.receipt && (

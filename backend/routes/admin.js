@@ -173,10 +173,37 @@ router.post('/login', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
+// Verify admin authentication (lightweight endpoint for token validation)
+router.get('/verify', auth, async (req, res) => {
+  try {
+    // If we reach here, the token is valid (middleware passed)
+    res.json({
+      success: true,
+      admin: {
+        id: req.admin._id,
+        email: req.admin.email,
+        name: req.admin.name
+      }
+    });
+  } catch (error) {
+    console.error('Auth verification error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Authentication verification failed' 
+    });
+  }
+});
+
 router.get('/submissions', auth, async (req, res) => {
   try {
+    console.log('📊 Submissions endpoint called');
+    console.log('   Query params:', req.query);
+    console.log('   Admin:', req.admin?.username);
+    
     const { status, page = 1, limit = 10 } = req.query;
     const query = status ? { status } : {};
+    
+    console.log('   Database query:', query);
     
     const skip = (page - 1) * limit;
     const submissions = await Submission.find(query)
@@ -186,6 +213,8 @@ router.get('/submissions', auth, async (req, res) => {
 
     const total = await Submission.countDocuments(query);
     const totalPages = Math.ceil(total / limit);
+
+    console.log(`   Found ${submissions.length} submissions (${total} total)`);
 
     res.json({
       submissions,
@@ -198,6 +227,7 @@ router.get('/submissions', auth, async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('❌ Submissions endpoint error:', error);
     res.status(500).json({ error: 'Failed to fetch submissions' });
   }
 });
@@ -327,17 +357,27 @@ router.post('/submissions/:id/approve', auth, async (req, res) => {
       ipAddress: req.ip
     }).save();
 
-    // Send approval email
-    try {
-      await emailService.sendApprovalEmail(submission);
-    } catch (emailError) {
-      console.error('Failed to send approval email:', emailError);
-    }
-
+    // Send response immediately to prevent timeout
     res.json({ 
       message: 'Submission approved successfully',
       submission 
     });
+
+    // Send approval email asynchronously (non-blocking)
+    setImmediate(async () => {
+      try {
+        console.log(`📤 Sending approval email to ${submission.email} (async)`);
+        const emailResult = await emailService.sendApprovalEmail(submission);
+        if (emailResult.success) {
+          console.log(`✅ Approval email sent successfully to ${submission.email}`);
+        } else {
+          console.error(`❌ Failed to send approval email to ${submission.email}:`, emailResult.error);
+        }
+      } catch (emailError) {
+        console.error('❌ Approval email error:', emailError);
+      }
+    });
+
   } catch (error) {
     // Add detailed error logging
     console.error('Approval error details:', {
@@ -442,18 +482,34 @@ router.post('/submissions/:id/reject', auth, async (req, res) => {
       ipAddress: req.ip
     }).save();
 
-    // Send rejection email
-    try {
-      await emailService.sendRejectionEmail(submission, reason);
-    } catch (emailError) {
-      console.error('Failed to send rejection email:', emailError);
-    }
-
+    // Send response immediately to prevent timeout
     res.json({ 
       message: 'Submission rejected successfully',
       submission 
     });
+
+    // Send rejection email asynchronously (non-blocking)
+    setImmediate(async () => {
+      try {
+        console.log(`📤 Sending rejection email to ${submission.email} (async)`);
+        const emailResult = await emailService.sendRejectionEmail(submission, reason);
+        if (emailResult.success) {
+          console.log(`✅ Rejection email sent successfully to ${submission.email}`);
+        } else {
+          console.error(`❌ Failed to send rejection email to ${submission.email}:`, emailResult.error);
+        }
+      } catch (emailError) {
+        console.error('❌ Rejection email error:', emailError);
+      }
+    });
+
   } catch (error) {
+    console.error('Rejection error details:', {
+      submissionId: req.params.id,
+      adminEmail: req.admin?.email,
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ error: 'Failed to reject submission' });
   }
 });

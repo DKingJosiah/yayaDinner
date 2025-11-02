@@ -7,8 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, CheckCircle, XCircle, Clock, ExternalLink, User, Mail, Phone, DollarSign, Calendar, FileText, Crown, Shield, Filter } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Clock, ExternalLink, User, Mail, Phone, DollarSign, Calendar, FileText, Crown, Shield, Filter, Send } from "lucide-react";
+import api from '../services/api';
+import toast from 'react-hot-toast';
 
 const AdminDashboard = () => {
   const { admin, logout } = useAuth();
@@ -16,6 +20,8 @@ const AdminDashboard = () => {
   const [filter, setFilter] = useState('all');
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [isTestingEmail, setIsTestingEmail] = useState(false);
 
   const {
     submissions,
@@ -30,14 +36,67 @@ const AdminDashboard = () => {
 
   const { data: selectedSubmission } = useSubmissionDetails(selectedSubmissionId);
 
-  const handleApprove = (id) => {
-    approveSubmission(id);
+  const handleApprove = async (id) => {
+    try {
+      await approveSubmission(id);
+      // Show success message with email status
+      toast.success('Submission approved! Confirmation email sent.', {
+        duration: 4000,
+        icon: '✅'
+      });
+    } catch (error) {
+      console.error('Approval error:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to approve submission';
+      const statusCode = error.response?.status;
+      
+      toast.error(`${errorMessage}${statusCode ? ` (${statusCode})` : ''}`, {
+        duration: 6000,
+        icon: '❌'
+      });
+    }
   };
 
   const handleReject = (id) => {
     rejectSubmission({ id, reason: rejectionReason });
     setShowRejectModal(false);
     setRejectionReason('');
+  };
+
+  const handleTestEmail = async () => {
+    if (!testEmail.trim()) {
+      toast.error('Please enter an email address');
+      return;
+    }
+
+    setIsTestingEmail(true);
+    try {
+      const response = await api.post('/api/admin/test-email', { 
+        email: testEmail.trim() 
+      });
+      
+      toast.success(`Test email sent successfully! Service: ${response.data.service}`, {
+        duration: 5000,
+        icon: '📧'
+      });
+      
+      if (response.data.messageId) {
+        toast.success(`Message ID: ${response.data.messageId}`, {
+          duration: 3000,
+          icon: '🆔'
+        });
+      }
+    } catch (error) {
+      console.error('Test email error:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to send test email';
+      const statusCode = error.response?.status;
+      
+      toast.error(`${errorMessage}${statusCode ? ` (${statusCode})` : ''}`, {
+        duration: 6000,
+        icon: '❌'
+      });
+    } finally {
+      setIsTestingEmail(false);
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -53,7 +112,7 @@ const AdminDashboard = () => {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !submissions.length) {
     return (
       <div className="min-h-screen flex items-center justify-center gradient-elegant">
         <div className="flex flex-col items-center gap-4 p-8 rounded-2xl bg-black/20 backdrop-blur-sm border border-gold/20 shadow-elegant">
@@ -99,6 +158,51 @@ const AdminDashboard = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Email Test Section */}
+        <div className="mb-8">
+          <Card className="shadow-elegant border-gold/20 bg-black/40 backdrop-blur-sm">
+            <CardHeader className="gradient-gold border-b border-gold/20">
+              <CardTitle className="text-lg font-semibold flex items-center gap-3 text-black">
+                <Send className="w-5 h-5" />
+                Email Service Test
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="flex gap-4 items-end">
+                <div className="flex-1">
+                  <Label htmlFor="testEmail" className="text-sm font-medium text-gold mb-2 block">
+                    Test Email Address
+                  </Label>
+                  <Input
+                    id="testEmail"
+                    type="email"
+                    placeholder="Enter email to test service..."
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                    className="bg-black/20 border-gold/30 text-gold placeholder:text-gold/50 focus:border-gold"
+                    onKeyPress={(e) => e.key === 'Enter' && handleTestEmail()}
+                  />
+                </div>
+                <Button
+                  onClick={handleTestEmail}
+                  disabled={isTestingEmail || !testEmail.trim()}
+                  variant="gold"
+                  className="transition-luxury shadow-elegant hover:shadow-gold"
+                >
+                  {isTestingEmail ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</>
+                  ) : (
+                    <><Send className="w-4 h-4 mr-2" />Send Test Email</>
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-gold/60 mt-2">
+                This will send a test confirmation email to verify your email service is working properly.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Submissions List */}
           <div className="lg:col-span-2">
@@ -108,6 +212,9 @@ const AdminDashboard = () => {
                   <CardTitle className="text-xl font-semibold flex items-center gap-3 text-black">
                     <FileText className="w-5 h-5" />
                     Event Submissions
+                    {isLoading && (
+                      <Loader2 className="w-4 h-4 animate-spin text-black/60" />
+                    )}
                   </CardTitle>
                   <Select value={filter} onValueChange={setFilter}>
                     <SelectTrigger className="w-[180px] bg-black/20 border-gold/30 text-black hover:bg-black/30 transition-luxury">
@@ -243,12 +350,20 @@ const AdminDashboard = () => {
                       </div>
                     </div>
 
-                    {/* Receipt Viewer - Updated to use base64 */}
-                    <ReceiptViewer 
-                      submissionId={selectedSubmission._id}
-                      useReceiptImage={useReceiptImage}
-                      originalName={selectedSubmission.receiptOriginalName}
-                    />
+                    {/* Receipt Viewer - On-demand loading only */}
+                    <div className="flex items-center gap-3 p-3 bg-gold/10 rounded-lg border border-gold/20 transition-luxury hover:bg-gold/20">
+                      <FileText className="w-4 h-4 text-gold" />
+                      <div className="flex-1">
+                        <span className="text-xs font-medium text-gold/70 block">Payment Receipt</span>
+                        <p className="text-sm text-gold">{selectedSubmission.receiptOriginalName || 'receipt.jpg'}</p>
+                      </div>
+                      <ReceiptViewer 
+                        submissionId={selectedSubmission._id}
+                        useReceiptImage={useReceiptImage}
+                        originalName={selectedSubmission.receiptOriginalName}
+                        onDemandOnly={true}
+                      />
+                    </div>
 
                     {selectedSubmission.status === 'pending' && (
                       <div className="pt-4 space-y-3">
@@ -259,7 +374,7 @@ const AdminDashboard = () => {
                           className="w-full transition-luxury shadow-elegant hover:shadow-gold"
                         >
                           {isApproving ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Approving...</>
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Approving & Sending Email...</>
                           ) : (
                             <><CheckCircle className="w-4 h-4 mr-2" />Approve Submission</>
                           )}
@@ -308,7 +423,7 @@ const AdminDashboard = () => {
                                   className="bg-red-600 hover:bg-red-700 border-red-500"
                                 >
                                   {isRejecting ? (
-                                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Rejecting...</>
+                                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Rejecting & Sending Email...</>
                                   ) : (
                                     'Reject Submission'
                                   )}

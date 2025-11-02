@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminService } from '../services/adminService';
-import toast from 'react-hot-toast';
 
 export const useSubmissions = (filter = 'all') => {
   const queryClient = useQueryClient();
@@ -9,11 +8,26 @@ export const useSubmissions = (filter = 'all') => {
   const submissionsQuery = useQuery({
     queryKey: ['submissions', filter],
     queryFn: () => {
+      console.log('🔄 Fetching submissions with filter:', filter);
       const params = filter !== 'all' ? { status: filter } : {};
       return adminService.getSubmissions(params);
     },
     staleTime: 30000, // 30 seconds
     refetchOnWindowFocus: false,
+    onError: (error) => {
+      console.error('❌ Submissions query error:', error);
+      
+      if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
+        console.error('🚫 Backend server appears to be down');
+      } else if (error.response?.status === 401) {
+        console.error('🔐 Authentication failed');
+      } else {
+        console.error('💥 Unknown error:', error.response?.data || error.message);
+      }
+    },
+    onSuccess: (data) => {
+      console.log('✅ Submissions loaded:', data?.submissions?.length || 0, 'items');
+    }
   });
 
   // Get single submission query
@@ -41,14 +55,15 @@ export const useSubmissions = (filter = 'all') => {
   const approveMutation = useMutation({
     mutationFn: adminService.approveSubmission,
     onSuccess: (data, submissionId) => {
-      toast.success('Submission approved successfully!');
+      // Don't show toast here - let the component handle it for better control
       // Invalidate and refetch submissions
       queryClient.invalidateQueries({ queryKey: ['submissions'] });
       // Update the specific submission in cache
       queryClient.invalidateQueries({ queryKey: ['submission', submissionId] });
     },
     onError: (error) => {
-      toast.error(error.response?.data?.error || 'Failed to approve submission');
+      // Don't show toast here - let the component handle it with more details
+      console.error('Approval mutation error:', error);
     },
   });
 
@@ -56,14 +71,15 @@ export const useSubmissions = (filter = 'all') => {
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }) => adminService.rejectSubmission(id, reason),
     onSuccess: (data, { id }) => {
-      toast.success('Submission rejected successfully!');
+      // Don't show toast here - let the component handle it for better control
       // Invalidate and refetch submissions
       queryClient.invalidateQueries({ queryKey: ['submissions'] });
       // Update the specific submission in cache
       queryClient.invalidateQueries({ queryKey: ['submission', id] });
     },
     onError: (error) => {
-      toast.error(error.response?.data?.error || 'Failed to reject submission');
+      // Don't show toast here - let the component handle it with more details
+      console.error('Rejection mutation error:', error);
     },
   });
 
@@ -74,8 +90,8 @@ export const useSubmissions = (filter = 'all') => {
     refetch: submissionsQuery.refetch,
     useSubmissionDetails,
     useReceiptImage,
-    approveSubmission: approveMutation.mutate,
-    rejectSubmission: rejectMutation.mutate,
+    approveSubmission: approveMutation.mutateAsync, // Use mutateAsync for promise-based handling
+    rejectSubmission: rejectMutation.mutateAsync,   // Use mutateAsync for promise-based handling
     isApproving: approveMutation.isPending,
     isRejecting: rejectMutation.isPending,
   };

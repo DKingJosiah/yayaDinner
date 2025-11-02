@@ -1,133 +1,100 @@
 const Brevo = require('@getbrevo/brevo');
-const nodemailer = require('nodemailer');
 
 class EmailService {
   constructor() {
     this.brevoEnabled = false;
-    this.gmailEnabled = false;
     
-    // Try to initialize Brevo
+    // Initialize Brevo
     this.initializeBrevo();
     
-    // Initialize Gmail as backup
-    this.initializeGmail();
-    
-    // Show which service is active
-    if (this.brevoEnabled && this.gmailEnabled) {
-      console.log('📧 Email Service: Brevo (primary) + Gmail (fallback)');
-    } else if (this.gmailEnabled) {
-      console.log('📧 Email Service: Gmail only');
-    } else if (this.brevoEnabled) {
-      console.log('📧 Email Service: Brevo only');
-    } else {
-      console.warn('⚠️ No email service configured!');
-    }
+    console.log('📧 Email Service initialized');
+    console.log(`   Brevo: ${this.brevoEnabled ? '✅ Active' : '❌ Disabled'}`);
   }
 
-  initializeBrevo() {
+ initializeBrevo() {
+  if (process.env.BREVO_API_KEY && process.env.BREVO_SENDER_EMAIL) {
     try {
-      if (!process.env.BREVO_API_KEY || !process.env.BREVO_SENDER_EMAIL) {
-        console.log('ℹ️ Brevo credentials not found, skipping...');
-        return;
-      }
-
-      const defaultClient = Brevo.ApiClient.instance;
-      
-      // Check if client exists and has authentications
-      if (!defaultClient || !defaultClient.authentications) {
-        throw new Error('Brevo API client not properly initialized');
-      }
-      
-      const apiKey = defaultClient.authentications['api-key'];
-      if (!apiKey) {
-        throw new Error('API key authentication not found');
-      }
-      
-      apiKey.apiKey = process.env.BREVO_API_KEY;
-      
+      // Initialize the API
       this.brevoApi = new Brevo.TransactionalEmailsApi();
+      
+      // Set the API key directly
+      this.brevoApi.setApiKey(
+        Brevo.TransactionalEmailsApiApiKeys.apiKey,
+        process.env.BREVO_API_KEY.trim()
+      );
+      
       this.brevoEnabled = true;
       
-      console.log('✅ Brevo initialized');
+      console.log('🔧 Brevo initialized successfully');
+      console.log(`   API Key: ${process.env.BREVO_API_KEY.substring(0, 15)}...`);
+      console.log(`   Sender: ${process.env.BREVO_SENDER_EMAIL}`);
+      console.log('   ✅ Transactional emails activated!');
     } catch (error) {
-      console.log('ℹ️ Brevo initialization failed:', error.message);
+      this.brevoEnabled = false;
+      console.log('⚠️ Brevo initialization failed:', error.message);
+      console.log('   Email functionality will be disabled');
     }
+  } else {
+    this.brevoEnabled = false;
+    const missing = [];
+    if (!process.env.BREVO_API_KEY) missing.push('BREVO_API_KEY');
+    if (!process.env.BREVO_SENDER_EMAIL) missing.push('BREVO_SENDER_EMAIL');
+    console.log(`⚠️ Brevo not initialized - missing: ${missing.join(', ')}`);
   }
-
-  initializeGmail() {
-    try {
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        console.log('ℹ️ Gmail credentials not found, skipping...');
-        return;
-      }
-
-      this.gmailTransporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.EMAIL_PORT || '587'),
-        secure: process.env.EMAIL_SECURE === 'true',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
-        }
-      });
-
-      this.gmailEnabled = true;
-      console.log('✅ Gmail SMTP initialized');
-    } catch (error) {
-      console.log('ℹ️ Gmail initialization failed:', error.message);
-    }
-  }
+}
 
   async sendApprovalEmail(submission) {
     console.log(`📤 Sending approval email to: ${submission.email}`);
+    console.log(`   Full name: ${submission.fullName}`);
+    console.log(`   Reference ID: ${submission.referenceId}`);
+    console.log(`   Brevo enabled: ${this.brevoEnabled}`);
     
-    const emailContent = this.getApprovalEmailContent(submission);
-    
-    // Try Brevo first
-    if (this.brevoEnabled) {
-      const brevoResult = await this.sendViaBrevo(submission, emailContent);
-      if (brevoResult.success) {
-        return brevoResult;
-      }
-      console.log('⚠️ Brevo failed, trying Gmail fallback...');
+    if (!this.brevoEnabled) {
+      console.log('❌ Brevo is not enabled. Check your .env file has:');
+      console.log('   BREVO_API_KEY=your_key');
+      console.log('   BREVO_SENDER_EMAIL=your_email');
+      return { 
+        success: false, 
+        error: 'Brevo email service is not initialized',
+        recipient: submission.email
+      };
     }
     
-    // Fallback to Gmail
-    if (this.gmailEnabled) {
-      return await this.sendViaGmail(submission, emailContent);
+    try {
+      console.log('🔧 Generating email content...');
+      const emailContent = this.getApprovalEmailContent(submission);
+      console.log(`   Subject: ${emailContent.subject}`);
+      console.log(`   HTML length: ${emailContent.html.length} chars`);
+      
+      console.log('📨 Calling sendViaBrevo...');
+      const result = await this.sendViaBrevo(submission, emailContent);
+      console.log('📬 sendViaBrevo result:', result);
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Error in sendApprovalEmail:', error);
+      return {
+        success: false,
+        error: error.message,
+        recipient: submission.email
+      };
     }
-    
-    return { 
-      success: false, 
-      error: 'No email service available',
-      recipient: submission.email
-    };
   }
 
   async sendRejectionEmail(submission, reason) {
     console.log(`📤 Sending rejection email to: ${submission.email}`);
     
+    if (!this.brevoEnabled) {
+      console.log('❌ Brevo is not enabled. Check your .env file.');
+      return { 
+        success: false, 
+        error: 'Brevo email service is not initialized',
+        recipient: submission.email
+      };
+    }
+    
     const emailContent = this.getRejectionEmailContent(submission, reason);
-    
-    // Try Brevo first
-    if (this.brevoEnabled) {
-      const brevoResult = await this.sendViaBrevo(submission, emailContent);
-      if (brevoResult.success) {
-        return brevoResult;
-      }
-      console.log('⚠️ Brevo failed, trying Gmail fallback...');
-    }
-    
-    // Fallback to Gmail
-    if (this.gmailEnabled) {
-      return await this.sendViaGmail(submission, emailContent);
-    }
-    
-    return { 
-      success: false, 
-      error: 'No email service available',
-      recipient: submission.email
-    };
+    return await this.sendViaBrevo(submission, emailContent);
   }
 
   async sendViaBrevo(submission, emailContent) {
@@ -150,6 +117,7 @@ class EmailService {
       sendSmtpEmail.htmlContent = emailContent.html;
       sendSmtpEmail.textContent = emailContent.text;
       
+      console.log('📧 Attempting to send via Brevo...');
       const result = await this.brevoApi.sendTransacEmail(sendSmtpEmail);
       
       console.log('✅ Email sent via Brevo');
@@ -164,35 +132,19 @@ class EmailService {
       
     } catch (error) {
       console.error(`❌ Brevo error: ${error.message}`);
+      
       if (error.response) {
+        console.error(`   Status: ${error.response.status}`);
         console.error(`   Details:`, error.response.body);
       }
-      return { success: false, error: error.message };
-    }
-  }
-
-  async sendViaGmail(submission, emailContent) {
-    try {
-      const info = await this.gmailTransporter.sendMail({
-        from: process.env.EMAIL_FROM || `"RCCG HOG Youth" <${process.env.EMAIL_USER}>`,
-        to: submission.email,
-        subject: emailContent.subject,
-        html: emailContent.html,
-        text: emailContent.text
-      });
       
-      console.log('✅ Email sent via Gmail');
-      console.log(`   Message ID: ${info.messageId}`);
+      if (error.response?.status === 403) {
+        console.error('   🔒 403 Error - Possible causes:');
+        console.error('      1. Transactional platform not fully activated');
+        console.error('      2. Sender email not verified');
+        console.error('      3. API key incorrect');
+      }
       
-      return { 
-        success: true, 
-        messageId: info.messageId,
-        recipient: submission.email,
-        service: 'Gmail'
-      };
-      
-    } catch (error) {
-      console.error(`❌ Gmail error: ${error.message}`);
       return { 
         success: false, 
         error: error.message,

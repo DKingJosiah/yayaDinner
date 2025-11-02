@@ -11,11 +11,13 @@ export function AuthProvider({ children }) {
       const token = localStorage.getItem('adminToken');
       if (token) {
         try {
-          // Verify token is still valid
-          const response = await api.get('/api/admin/submissions?limit=1');
-          const adminData = localStorage.getItem('adminData');
-          if (adminData) {
-            setAdmin(JSON.parse(adminData));
+          // Verify token is still valid using dedicated auth endpoint
+          const response = await api.get('/api/admin/verify');
+          if (response.data.success) {
+            // Use admin data from verification response
+            setAdmin(response.data.admin);
+          } else {
+            throw new Error('Token verification failed');
           }
         } catch (error) {
           console.error('Token validation failed:', error);
