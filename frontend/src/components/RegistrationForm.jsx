@@ -58,7 +58,7 @@ const RegistrationForm = () => {
     formState: { errors },
     reset,
     setValue,
-    watch,
+    // watch,
   } = useForm();
 
   const copyToClipboard = async (text, field) => {
