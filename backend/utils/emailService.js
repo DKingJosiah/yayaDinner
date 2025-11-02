@@ -1,75 +1,57 @@
-const Brevo = require('@getbrevo/brevo');
+const { Resend } = require('resend');
 
 class EmailService {
   constructor() {
-    this.brevoEnabled = false;
-    
-    // Initialize Brevo
-    this.initializeBrevo();
-    
+    this.resendEnabled = false;
+    this.resend = null;
+
+    this.initializeResend();
+
     console.log('📧 Email Service initialized');
-    console.log(`   Brevo: ${this.brevoEnabled ? '✅ Active' : '❌ Disabled'}`);
+    console.log(`   Resend: ${this.resendEnabled ? '✅ Active' : '❌ Disabled'}`);
   }
 
- initializeBrevo() {
-  if (process.env.BREVO_API_KEY && process.env.BREVO_SENDER_EMAIL) {
-    try {
-      // Initialize the API
-      this.brevoApi = new Brevo.TransactionalEmailsApi();
-      
-      // Set the API key directly
-      this.brevoApi.setApiKey(
-        Brevo.TransactionalEmailsApiApiKeys.apiKey,
-        process.env.BREVO_API_KEY.trim()
-      );
-      
-      this.brevoEnabled = true;
-      
-      console.log('🔧 Brevo initialized successfully');
-      console.log(`   API Key: ${process.env.BREVO_API_KEY.substring(0, 15)}...`);
-      console.log(`   Sender: ${process.env.BREVO_SENDER_EMAIL}`);
-      console.log('   ✅ Transactional emails activated!');
-    } catch (error) {
-      this.brevoEnabled = false;
-      console.log('⚠️ Brevo initialization failed:', error.message);
-      console.log('   Email functionality will be disabled');
+  initializeResend() {
+    const apiKey = process.env.RESEND_API_KEY;
+    
+    if (!apiKey) {
+      console.error('⚠️  RESEND_API_KEY not found in environment variables');
+      return;
     }
-  } else {
-    this.brevoEnabled = false;
-    const missing = [];
-    if (!process.env.BREVO_API_KEY) missing.push('BREVO_API_KEY');
-    if (!process.env.BREVO_SENDER_EMAIL) missing.push('BREVO_SENDER_EMAIL');
-    console.log(`⚠️ Brevo not initialized - missing: ${missing.join(', ')}`);
+
+    try {
+      this.resend = new Resend(apiKey);
+      this.resendEnabled = true;
+      console.log('✅ Resend initialized successfully');
+    } catch (error) {
+      console.error('❌ Failed to initialize Resend:', error.message);
+      this.resendEnabled = false;
+    }
   }
-}
 
   async sendApprovalEmail(submission) {
     console.log(`📤 Sending approval email to: ${submission.email}`);
     console.log(`   Full name: ${submission.fullName}`);
     console.log(`   Reference ID: ${submission.referenceId}`);
-    console.log(`   Brevo enabled: ${this.brevoEnabled}`);
-    
-    if (!this.brevoEnabled) {
-      console.log('❌ Brevo is not enabled. Check your .env file has:');
-      console.log('   BREVO_API_KEY=your_key');
-      console.log('   BREVO_SENDER_EMAIL=your_email');
-      return { 
-        success: false, 
-        error: 'Brevo email service is not initialized',
+    console.log(`   Resend enabled: ${this.resendEnabled}`);
+
+    if (!this.resendEnabled) {
+      return {
+        success: false,
+        error: 'Resend email service is not initialized',
         recipient: submission.email
       };
     }
-    
+
     try {
       console.log('🔧 Generating email content...');
       const emailContent = this.getApprovalEmailContent(submission);
       console.log(`   Subject: ${emailContent.subject}`);
       console.log(`   HTML length: ${emailContent.html.length} chars`);
-      
-      console.log('📨 Calling sendViaBrevo...');
-      const result = await this.sendViaBrevo(submission, emailContent);
-      console.log('📬 sendViaBrevo result:', result);
-      
+
+      console.log('📨 Calling sendViaResend...');
+      const result = await this.sendViaResend(submission, emailContent);
+      console.log('📬 sendViaResend result:', result);
       return result;
     } catch (error) {
       console.error('❌ Error in sendApprovalEmail:', error);
@@ -83,71 +65,68 @@ class EmailService {
 
   async sendRejectionEmail(submission, reason) {
     console.log(`📤 Sending rejection email to: ${submission.email}`);
-    
-    if (!this.brevoEnabled) {
-      console.log('❌ Brevo is not enabled. Check your .env file.');
-      return { 
-        success: false, 
-        error: 'Brevo email service is not initialized',
+    console.log(`   Resend enabled: ${this.resendEnabled}`);
+
+    if (!this.resendEnabled) {
+      return {
+        success: false,
+        error: 'Resend email service is not initialized',
         recipient: submission.email
       };
     }
-    
+
     const emailContent = this.getRejectionEmailContent(submission, reason);
-    return await this.sendViaBrevo(submission, emailContent);
+    return await this.sendViaResend(submission, emailContent);
   }
 
-  async sendViaBrevo(submission, emailContent) {
+  async sendViaResend(submission, emailContent) {
     try {
-      const sendSmtpEmail = new Brevo.SendSmtpEmail();
+      const from = process.env.RESEND_FROM_EMAIL || 'notifications@yourdomain.com';
+      const replyTo = process.env.RESEND_REPLY_TO || from;
+
+      console.log('📧 Attempting to send via Resend...');
+      console.log(`   From: ${from}`);
+      console.log(`   To: ${submission.email}`);
       
-      sendSmtpEmail.sender = {
-        email: process.env.BREVO_SENDER_EMAIL,
-        name: "RCCG HOG Youth"
-      };
-      
-      sendSmtpEmail.to = [
-        {
-          email: submission.email,
-          name: submission.fullName
-        }
-      ];
-      
-      sendSmtpEmail.subject = emailContent.subject;
-      sendSmtpEmail.htmlContent = emailContent.html;
-      sendSmtpEmail.textContent = emailContent.text;
-      
-      console.log('📧 Attempting to send via Brevo...');
-      const result = await this.brevoApi.sendTransacEmail(sendSmtpEmail);
-      
-      console.log('✅ Email sent via Brevo');
-      console.log(`   Message ID: ${result.messageId}`);
-      
-      return { 
-        success: true, 
-        messageId: result.messageId,
+      const response = await this.resend.emails.send({
+        from,
+        to: submission.email,
+        subject: emailContent.subject,
+        html: emailContent.html,
+        text: emailContent.text,
+        reply_to: replyTo,
+        headers: { 'X-Reference-ID': submission.referenceId }
+      });
+
+      const messageId = response?.data?.id || response?.id;
+      console.log('✅ Email sent via Resend');
+      console.log(`   Message ID: ${messageId}`);
+
+      return {
+        success: true,
+        messageId,
         recipient: submission.email,
-        service: 'Brevo'
+        service: 'Resend'
       };
-      
     } catch (error) {
-      console.error(`❌ Brevo error: ${error.message}`);
-      
-      if (error.response) {
-        console.error(`   Status: ${error.response.status}`);
-        console.error(`   Details:`, error.response.body);
-      }
-      
-      if (error.response?.status === 403) {
+      const status = error?.statusCode || error?.response?.status;
+      console.error(`❌ Resend error: ${error?.message || String(error)}`);
+      if (status) console.error(`   Status: ${status}`);
+      if (error?.error) console.error('   Details:', error.error);
+
+      if (status === 403) {
         console.error('   🔒 403 Error - Possible causes:');
-        console.error('      1. Transactional platform not fully activated');
-        console.error('      2. Sender email not verified');
-        console.error('      3. API key incorrect');
+        console.error('      1. Domain not verified in Resend');
+        console.error('      2. From address not in verified domain');
+        console.error('      3. API key lacks permissions or is invalid');
       }
-      
-      return { 
-        success: false, 
-        error: error.message,
+      if (status === 401) {
+        console.error('   🔑 401 Unauthorized - Check RESEND_API_KEY');
+      }
+
+      return {
+        success: false,
+        error: error?.message || 'Unknown Resend error',
         recipient: submission.email
       };
     }
