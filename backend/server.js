@@ -12,6 +12,13 @@ const { specs, swaggerUi } = require('./config/swagger');
 
 const app = express();
 
+
+const keepAlive = require('./keepAliveServer');
+
+// Connect to database
+
+// Start keepalive
+keepAlive();
 // Trust proxy for Render deployment
 app.set('trust proxy', 1);
 
@@ -21,7 +28,8 @@ app.use(helmet());
 const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
-  'http://localhost:3000',   // for Swagger UI
+  'http://localhost:3000',   // Swagger UI and local testing
+  'http://127.0.0.1:3000',
   'https://yaya-dinner.vercel.app',
   'https://hogdinner.onrender.com'
 ];
@@ -33,17 +41,13 @@ app.use(cors({
     // Allow requests with no origin (like curl or server-to-server)
     if (!origin) return callback(null, true);
 
-    // Allow localhost (dev), vercel (frontend), and render (backend + swagger)
-    if (
-      origin.includes("localhost:5173") ||
-      origin.includes("vercel.app") ||
-      origin.includes("onrender.com")
-    ) {
-      callback(null, true);
-    } else {
-      console.error("❌ Blocked by CORS:", origin);
-      callback(new Error("Not allowed by CORS"));
+    // Allow if origin matches the whitelist
+    if (allowedOrigins.some((o) => origin.startsWith(o))) {
+      return callback(null, true);
     }
+
+    console.error("❌ Blocked by CORS:", origin);
+    return callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -122,8 +126,24 @@ app.use('*', (req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// MongoDB connection (removed deprecated options)
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/dinner-registration')
+// MongoDB connection (tuned for Atlas)
+mongoose.connection.on('error', err => {
+  console.error('❌ Mongo connection error:', err);
+});
+mongoose.connection.on('disconnected', () => {
+  console.error('⚠️ Mongo disconnected');
+});
+
+mongoose.connect(
+  process.env.MONGODB_URI || 'mongodb://localhost:27017/dinner-registration',
+  {
+    serverSelectionTimeoutMS: 5000, // faster fail if cluster not reachable
+    socketTimeoutMS: 45000,         // allow longer operations before socket timeout
+    maxPoolSize: 10,                // reasonable pool
+    minPoolSize: 5,
+    family: 4                       // prefer IPv4 to avoid IPv6 DNS issues
+  }
+)
 .then(() => console.log('✅ Connected to MongoDB'))
 .catch(err => console.error('❌ MongoDB connection error:', err));
 

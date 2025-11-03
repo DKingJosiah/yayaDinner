@@ -5,10 +5,18 @@ class EmailService {
     this.resendEnabled = false;
     this.resend = null;
 
+    // Capture sender configuration from env
+    this.fromEmail = process.env.RESEND_FROM_EMAIL;
+    this.replyToEmail = process.env.RESEND_REPLY_TO || this.fromEmail;
+    if (!this.fromEmail) {
+      console.error('⚠️ RESEND_FROM_EMAIL not set. Emails will not send.');
+    }
+
     this.initializeResend();
 
     console.log('📧 Email Service initialized');
     console.log(`   Resend: ${this.resendEnabled ? '✅ Active' : '❌ Disabled'}`);
+    console.log(`   From: ${this.fromEmail || '❌ missing'}`);
   }
 
   initializeResend() {
@@ -81,13 +89,17 @@ class EmailService {
 
   async sendViaResend(submission, emailContent) {
     try {
-      const from = process.env.RESEND_FROM_EMAIL || 'notifications@yourdomain.com';
-      const replyTo = process.env.RESEND_REPLY_TO || from;
+      const from = this.fromEmail;
+      const replyTo = this.replyToEmail;
+
+      if (!from) {
+        throw new Error('RESEND_FROM_EMAIL is missing. Configure a verified sender email.');
+      }
 
       console.log('📧 Attempting to send via Resend...');
       console.log(`   From: ${from}`);
       console.log(`   To: ${submission.email}`);
-      
+
       const response = await this.resend.emails.send({
         from,
         to: submission.email,
@@ -110,18 +122,15 @@ class EmailService {
       };
     } catch (error) {
       const status = error?.statusCode || error?.response?.status;
+      const details = error?.response?.data || error?.error;
       console.error(`❌ Resend error: ${error?.message || String(error)}`);
       if (status) console.error(`   Status: ${status}`);
-      if (error?.error) console.error('   Details:', error.error);
+      if (details) console.error('   API details:', details);
 
       if (status === 403) {
-        console.error('   🔒 403 Error - Possible causes:');
-        console.error('      1. Domain not verified in Resend');
-        console.error('      2. From address not in verified domain');
-        console.error('      3. API key lacks permissions or is invalid');
-      }
-      if (status === 401) {
-        console.error('   🔑 401 Unauthorized - Check RESEND_API_KEY');
+        console.error('   🔒 403 - Check domain verification and sender address.');
+      } else if (status === 401) {
+        console.error('   🔑 401 - Check RESEND_API_KEY.');
       }
 
       return {
